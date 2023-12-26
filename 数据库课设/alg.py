@@ -114,16 +114,16 @@ def insert_schedule_to_db(classrooms, courses, db_config):
                             if course:
                                 # 准备 SQL 插入语句
                                 insert_stmt = """
-                                    INSERT INTO teacher_classroom_course (tid, course_name, cid, wk, tday, clth, clname)
+                                    INSERT INTO teacher_classroom_course (teacher_id, course_name, course_id, wk, tday, clth, classroom)
                                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                                     ON DUPLICATE KEY UPDATE
-                                    tid = VALUES(tid),
+                                    tid = VALUES(teacher_id),
                                     course_name = VALUES(course_name),
-                                    cid = VALUES(cid),
+                                    cid = VALUES(course_id),
                                     wk = VALUES(wk),
                                     tday = VALUES(tday),
                                     clth = VALUES(clth),
-                                    clname = VALUES(clname)
+                                    clname = VALUES(classroom)
                                 """
                                 # 执行插入或更新操作
                                 cursor.execute(insert_stmt, (
@@ -217,7 +217,7 @@ def load_data_from_excel_to_db(excel_path, db_config):
 
         for index, row in df.iterrows():
             # insert_stmt = "INSERT INTO classroom (clname, crp) VALUES (%s, %s)"
-            insert_stmt = "INSERT INTO classroom (clname, crp) VALUES (?, ?)"
+            insert_stmt = "INSERT INTO classroom (clssroom, capacity) VALUES (?, ?)"
             cursor.execute(insert_stmt, (row['clname'], row['capacity']))
 
         conn.commit()
@@ -236,7 +236,7 @@ def load_data_from_excel_to_db(excel_path, db_config):
         cursor = conn.cursor()
 
         for index, row in df.iterrows():
-            insert_stmt = "INSERT INTO teacher (tid, tname, tsex) VALUES (?, ?, ?)"
+            insert_stmt = "INSERT INTO teacher (teacher_id, teacher_name, teacher_sex) VALUES (?, ?, ?)"
             # insert_stmt = "INSERT INTO teacher (tid, tname, tsex) VALUES (%s, %s, %s)"
             # 确保字段对应的顺序与数据库中的表结构一致
             cursor.execute(insert_stmt, (row['teacher_id'], row['teacher_name'], row['teacher_sex']))
@@ -263,13 +263,12 @@ def load_data_from_excel_to_db(excel_path, db_config):
             # 准备SQL插入语句，确保字段与数据库中的字段匹配
             insert_stmt = """ 
                 INSERT INTO course 
-                (id, cid, cname, count, student_count, teacher_name, tid, clid) 
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                (course_id, course_name, teacher_id, class_id) 
+                VALUES (%s, %s, %s, %s)
             """
             # 执行SQL插入语句
             cursor.execute(insert_stmt, (
-                row['id'], row['course_id'], row['course_name'], row['count'],
-                row['student_count'], row['teacher_name'], row['teacher_id'], row['clid']
+                row['course_id'], row['course_name'], row['teacher_id'], row['clid']
             ))
 
         # 提交到数据库执行
@@ -311,7 +310,7 @@ def query_classroom_schedule_matrix(db_config, classroom_name, week):
         query = """
             SELECT tday, clth
             FROM teacher_classroom_course
-            WHERE clname = ? AND wk = ?
+            WHERE classroom = ? AND wk = ?
         """
 
         # 执行查询
@@ -358,7 +357,7 @@ def query_classroom_schedule(db_config, classroom_name, week):
         query = """
             SELECT tday, clth, course_name
             FROM teacher_classroom_course
-            WHERE clname = ? AND wk = ?
+            WHERE classroom = ? AND wk = ?
         """
         cursor.execute(query, (classroom_name, week))
 
@@ -401,9 +400,9 @@ def query_teacher_schedule(db_config, teacher_id):
 
         # 查询指定教师的课程安排
         query = """
-            SELECT wk, clth, course_name, clname
+            SELECT wk, clth, course_name, classroom
             FROM teacher_classroom_course
-            WHERE tid = %s
+            WHERE teacher_id = %s
             ORDER BY wk, clth
         """
         cursor.execute(query, (teacher_id,))
